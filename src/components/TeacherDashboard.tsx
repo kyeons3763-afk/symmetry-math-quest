@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { classroomSync, DEFAULT_ROOM_PASSWORD } from '../utils/classroomSync';
+import { subscribeRealtimeClassroom, clearClassroomFromFirestore } from '../utils/firebase';
 import { StudentRecord } from '../types';
 import { sound } from '../utils/audio';
 
@@ -40,19 +41,41 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ isOpen, onCl
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [isProjectorMode, setIsProjectorMode] = useState(false);
 
-  // Load and subscribe to student updates
+  // Load and subscribe to student updates via Firestore + Local Sync
   useEffect(() => {
-    const updateList = () => {
-      const pwd = classroomSync.getRoomPassword();
-      setCurrentRoomPwd(pwd);
-      const list = classroomSync.getStudentsByRoom(pwd);
-      setStudents(list);
-    };
+    const pwd = classroomSync.getRoomPassword();
+    setCurrentRoomPwd(pwd);
 
-    updateList();
-    const unsubscribe = classroomSync.subscribe(updateList);
-    return () => unsubscribe();
-  }, []);
+    // Initial local list
+    const localList = classroomSync.getStudentsByRoom(pwd);
+    if (localList.length > 0) {
+      setStudents(localList);
+    }
+
+    // Subscribe to Firebase Firestore live stream
+    let unsubFirestore: () => void = () => {};
+    try {
+      unsubFirestore = subscribeRealtimeClassroom(pwd, (firestoreList) => {
+        if (firestoreList && firestoreList.length > 0) {
+          setStudents(firestoreList);
+        }
+      });
+    } catch (e) {
+      console.warn('Firestore subscription fallback:', e);
+    }
+
+    const unsubLocal = classroomSync.subscribe(() => {
+      const p = classroomSync.getRoomPassword();
+      setCurrentRoomPwd(p);
+      const l = classroomSync.getStudentsByRoom(p);
+      setStudents(l);
+    });
+
+    return () => {
+      unsubFirestore();
+      unsubLocal();
+    };
+  }, [currentRoomPwd]);
 
   if (!isOpen) return null;
 
@@ -89,9 +112,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ isOpen, onCl
   };
 
   // Clear students
-  const handleClearStudents = () => {
+  const handleClearStudents = async () => {
     if (window.confirm(`'${currentRoomPwd}' 방의 모든 학생 점수 기록을 초기화하시겠습니까?`)) {
       classroomSync.clearStudentsByRoom(currentRoomPwd);
+      try {
+        await clearClassroomFromFirestore(currentRoomPwd);
+      } catch (e) {
+        console.warn('Firestore clear error:', e);
+      }
       sound.playUndo();
     }
   };

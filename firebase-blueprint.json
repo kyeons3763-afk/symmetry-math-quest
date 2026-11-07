@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "LeaderboardRecord": {
+      "title": "LeaderboardRecord",
+      "description": "Represents a student's completed game score record for the symmetry math challenge.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the score record"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Student nickname or name"
+        },
+        "score": {
+          "type": "number",
+          "description": "Total score earned in the game"
+        },
+        "level": {
+          "type": "number",
+          "description": "Highest level completed (1, 2, or 3)"
+        },
+        "timeTakenSeconds": {
+          "type": "number",
+          "description": "Total duration in seconds"
+        },
+        "solvedCount": {
+          "type": "number",
+          "description": "Number of problems correctly solved"
+        },
+        "maxCombo": {
+          "type": "number",
+          "description": "Maximum consecutive combo achieved"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Honor title earned based on score"
+        },
+        "roomPassword": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Classroom room password"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["id", "name", "score", "level", "roomPassword"]
+    },
+    "ClassroomStudent": {
+      "title": "ClassroomStudent",
+      "description": "Live real-time student session for the teacher dashboard.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique student session ID"
+        },
+        "nickname": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Student nickname"
+        },
+        "roomPassword": {
+          "type": "string",
+          "maxLength": 30,
+          "description": "Active classroom room password"
+        },
+        "score": {
+          "type": "number",
+          "description": "Current live score"
+        },
+        "level": {
+          "type": "number",
+          "description": "Current level being played"
+        },
+        "solvedCount": {
+          "type": "number",
+          "description": "Number of problems solved"
+        },
+        "maxCombo": {
+          "type": "number",
+          "description": "Current max combo"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["playing", "cleared", "timeUp"],
+          "description": "Live student game state"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Last update timestamp in milliseconds"
+        }
+      },
+      "required": ["id", "nickname", "roomPassword", "score", "level", "status"]
+    }
+  },
+  "firestore": {
+    "/leaderboard/{recordId}": {
+      "schema": "LeaderboardRecord",
+      "description": "Global and room-filtered high score leaderboard records."
+    },
+    "/classroom_students/{studentId}": {
+      "schema": "ClassroomStudent",
+      "description": "Real-time active student sessions for teacher classroom monitor."
+    }
+  }
+}

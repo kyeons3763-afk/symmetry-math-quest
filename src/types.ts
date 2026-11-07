@@ -56,6 +56,7 @@ export interface LeaderboardRecord {
   maxCombo: number;
   date: string;
   title: string;
+  roomPassword?: string;
 }
 
 // Student session in teacher classroom system

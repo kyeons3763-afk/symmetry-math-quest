@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidLeaderboard(data) {
+      return data.keys().hasAll(['id', 'name', 'score', 'level', 'roomPassword']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 30 &&
+             data.score is number && data.score >= 0 && data.score <= 100000 &&
+             data.level is number && data.level >= 1 && data.level <= 3 &&
+             data.roomPassword is string && data.roomPassword.size() <= 30;
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['id', 'nickname', 'roomPassword', 'score', 'level', 'status']) &&
+             data.nickname is string && data.nickname.size() > 0 && data.nickname.size() <= 30 &&
+             data.score is number && data.score >= 0 && data.score <= 100000 &&
+             data.level is number && data.level >= 1 && data.level <= 3 &&
+             data.roomPassword is string && data.roomPassword.size() <= 30 &&
+             (data.status == 'playing' || data.status == 'cleared' || data.status == 'timeUp');
+    }
+
+    // Leaderboard Records
+    match /leaderboard/{recordId} {
+      allow read: if true;
+      allow create: if isValidId(recordId) && isValidLeaderboard(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // Classroom Live Student Records
+    match /classroom_students/{studentId} {
+      allow read: if true;
+      allow create, update: if isValidId(studentId) && isValidStudent(request.resource.data);
+      allow delete: if isValidId(studentId);
+    }
+  }
+}

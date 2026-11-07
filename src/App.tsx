@@ -22,6 +22,11 @@ import { PROBLEMS } from './data/problems';
 import { Problem, GridPoint, LeaderboardRecord, Inventory, StudentRecord } from './types';
 import { sound } from './utils/audio';
 import { classroomSync } from './utils/classroomSync';
+import {
+  subscribeRealtimeLeaderboard,
+  saveRecordToFirestore,
+  upsertStudentToFirestore,
+} from './utils/firebase';
 import { TopBar } from './components/TopBar';
 import { GridCanvas } from './components/GridCanvas';
 import { ItemBar } from './components/ItemBar';
@@ -120,7 +125,22 @@ export default function App() {
     setSoundEnabled(newState);
   };
 
-  // Sync score and level to Teacher Classroom real-time board
+  // Subscribe to Realtime Leaderboard from Firestore
+  useEffect(() => {
+    let unsub: () => void = () => {};
+    try {
+      unsub = subscribeRealtimeLeaderboard(null, (records) => {
+        if (records && records.length > 0) {
+          setLeaderboard(records);
+        }
+      });
+    } catch (e) {
+      console.warn('Realtime leaderboard subscription error:', e);
+    }
+    return () => unsub();
+  }, []);
+
+  // Sync score and level to Teacher Classroom real-time board & Firestore
   const syncStudentProgress = useCallback(
     (newScore: number, newLevel: number, newSolved: number, newMaxCombo: number, status: 'playing' | 'cleared' | 'timeUp') => {
       if (!currentStudent) return;
@@ -140,6 +160,11 @@ export default function App() {
         // ignore
       }
       classroomSync.upsertStudent(updated);
+      try {
+        upsertStudentToFirestore(updated);
+      } catch (e) {
+        console.warn('Firestore upsert student error:', e);
+      }
     },
     [currentStudent]
   );
@@ -446,6 +471,13 @@ export default function App() {
     } catch (e) {
       // ignore
     }
+
+    // Persist to Google Cloud Firestore database
+    try {
+      saveRecordToFirestore(newRecord, currentStudent?.roomPassword || '501');
+    } catch (e) {
+      console.warn('Firestore save record error:', e);
+    }
   };
 
   const handleClearRecords = () => {
@@ -542,6 +574,13 @@ export default function App() {
                     <span>1단계부터 도전 시작 (5분)</span>
                   </button>
                   <button
+                    onClick={() => setIsLeaderboardOpen(true)}
+                    className="px-5 py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <Trophy className="w-4 h-4 fill-amber-200 text-amber-100" />
+                    <span>실시간 리더보드 확인</span>
+                  </button>
+                  <button
                     onClick={() => setIsConceptOpen(true)}
                     className="px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all flex items-center gap-2 text-sm cursor-pointer"
                   >
@@ -569,6 +608,56 @@ export default function App() {
                   />
                   <span className="text-xs font-bold text-slate-800">박사 올빼미가 함께해요!</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Live Firestore Leaderboard Highlight & Quick Link */}
+            <div className="bg-gradient-to-r from-amber-50/90 via-white to-amber-50/70 rounded-3xl p-5 sm:p-6 border border-amber-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    구글 파이어데이터베이스(Firestore) 실시간 연동
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-500 fill-amber-400" />
+                  <span>실시간 명예의 전당 Top 3 랭킹</span>
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Firebase 클라우드에 실시간 기록된 전국 5학년 수학 대칭 탐험대원들의 순위입니다.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {leaderboard.length > 0 ? (
+                  leaderboard.slice(0, 3).map((rec, i) => (
+                    <div
+                      key={rec.id || i}
+                      className="bg-white px-3.5 py-2 rounded-xl border border-amber-200/80 shadow-2xs text-center min-w-[95px]"
+                    >
+                      <div className="text-xs font-bold text-slate-800 flex items-center justify-center gap-1">
+                        <span>{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                        <span className="truncate max-w-[70px]">{rec.name}</span>
+                      </div>
+                      <div className="text-xs font-extrabold text-indigo-600 font-mono mt-0.5">
+                        {rec.score.toLocaleString()}점
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-slate-400 px-3 py-2 bg-white rounded-xl border border-slate-200">
+                    첫 번째 명예의 전당 주인공에 도전해보세요!
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setIsLeaderboardOpen(true)}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ml-1"
+                >
+                  <span>전체 리더보드 열기</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
