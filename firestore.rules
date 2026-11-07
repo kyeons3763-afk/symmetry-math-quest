@@ -27,11 +27,11 @@ service cloud.firestore {
              (data.status == 'playing' || data.status == 'cleared' || data.status == 'timeUp');
     }
 
-    // Leaderboard Records
+    // Leaderboard Records: public read and validated create/update/delete
     match /leaderboard/{recordId} {
       allow read: if true;
-      allow create: if isValidId(recordId) && isValidLeaderboard(request.resource.data);
-      allow update, delete: if false;
+      allow create, update: if isValidId(recordId) && isValidLeaderboard(request.resource.data);
+      allow delete: if isValidId(recordId);
     }
 
     // Classroom Live Student Records
